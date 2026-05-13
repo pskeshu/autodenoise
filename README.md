@@ -56,29 +56,55 @@ Useful flags:
 
 ## Plugging in a real denoiser
 
-The shipped `PassthroughDenoiser` just copies the file. To wire in a real
-model, subclass `autodenoise.Denoiser`:
+`autodenoise` ships with a CAREamics-based **N2V2** backend (self-supervised,
+no clean ground truth required). It is opt-in — install only if you want it,
+otherwise the watcher runs on the lean `watchdog`-only base.
+
+```bash
+pip install -r requirements-careamics.txt   # adds careamics + tifffile, Python 3.11+
+```
+
+### 1. Train on representative noisy data
+
+`train.py` accepts a TIFF file or a directory of TIFFs. For 3D stacks pass
+`--axes ZYX`; checkpoints land under `models/n2v2/checkpoints/`.
+
+```bash
+python train.py /path/to/training/tiffs --axes ZYX --epochs 30
+```
+
+### 2. Run the watcher with the trained model
+
+```bash
+python run.py /path/to/incoming /path/to/denoised \
+    --backend careamics-n2v \
+    --weights models/n2v2/checkpoints/<best>.ckpt \
+    --axes ZYX \
+    --tile-size 16 256 256 \
+    --quiet-seconds 5
+```
+
+GPU is used automatically when available (logged at startup); CPU works
+too, just slower.
+
+### Adding your own backend
+
+Subclass `autodenoise.Denoiser`, do heavy imports in `__init__` or
+`denoise`, then add a branch to `_build_denoiser` in `run.py`:
 
 ```python
 from pathlib import Path
 from autodenoise import Denoiser
 
-class CAREamicsDenoiser(Denoiser):
-    def __init__(self, weights_path: Path):
-        from careamics import CAREamist
-        self.model = CAREamist.from_pretrained(weights_path)
+class MyDenoiser(Denoiser):
+    def __init__(self, weights: Path):
+        import my_lib
+        self.model = my_lib.load(weights)
 
     def denoise(self, src: Path, dst: Path) -> None:
         import tifffile
         img = tifffile.imread(src)
-        out = self.model.predict(img)
-        tifffile.imwrite(dst, out)
-```
-
-Then swap the instance in `run.py`:
-
-```python
-denoiser = CAREamicsDenoiser(Path("weights/n2v.ckpt"))
+        tifffile.imwrite(dst, self.model.predict(img))
 ```
 
 ## Limits

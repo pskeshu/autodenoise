@@ -1,0 +1,9 @@
+# Optional deps for the CAREamics N2V/N2V2 backend.
+# Install on top of requirements.txt:
+#     pip install -r requirements.txt
+#     pip install -r requirements-careamics.txt
+#
+# CAREamics 0.1+ requires Python >= 3.11. The base watcher pipeline still
+# runs on 3.9+ as long as this file is not installed.
+careamics>=0.1.0
+tifffile>=2023.0

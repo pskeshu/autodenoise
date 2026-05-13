@@ -9,7 +9,25 @@ import sys
 import time
 from pathlib import Path
 
-from autodenoise import DirectoryWatcher, Notifier, PassthroughDenoiser
+from autodenoise import Denoiser, DirectoryWatcher, Notifier, PassthroughDenoiser
+
+
+def _build_denoiser(args: argparse.Namespace) -> Denoiser:
+    if args.backend == "passthrough":
+        return PassthroughDenoiser()
+    if args.backend == "careamics-n2v":
+        if args.weights is None:
+            raise SystemExit("--weights is required when --backend=careamics-n2v")
+        # Lazy import: only triggered when this backend is actually selected,
+        # so the passthrough smoke test runs without careamics installed.
+        from autodenoise.careamics_backend import CAREamicsN2VDenoiser
+        return CAREamicsN2VDenoiser(
+            checkpoint=args.weights,
+            axes=args.axes,
+            tile_size=tuple(args.tile_size) if args.tile_size else None,
+            tile_overlap=tuple(args.tile_overlap) if args.tile_overlap else None,
+        )
+    raise SystemExit(f"unknown backend: {args.backend}")
 
 
 def main() -> int:
@@ -46,6 +64,40 @@ def main() -> int:
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
     )
+    parser.add_argument(
+        "--backend",
+        choices=["passthrough", "careamics-n2v"],
+        default="passthrough",
+        help="Denoising backend. Default: passthrough (just copies files).",
+    )
+    parser.add_argument(
+        "--weights",
+        type=Path,
+        default=None,
+        help="Path to a trained CAREamics checkpoint or YAML config. "
+        "Required for --backend=careamics-n2v.",
+    )
+    parser.add_argument(
+        "--axes",
+        default="YX",
+        help="Input axis order for careamics-n2v (e.g. YX, ZYX). Default: YX.",
+    )
+    parser.add_argument(
+        "--tile-size",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Tile size for careamics-n2v inference (e.g. 16 256 256 for 3D). "
+        "Default: no tiling (whole-image inference).",
+    )
+    parser.add_argument(
+        "--tile-overlap",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Tile overlap for careamics-n2v inference. "
+        "Default: half of --tile-size when tiling is enabled.",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -55,7 +107,7 @@ def main() -> int:
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    denoiser = PassthroughDenoiser()
+    denoiser = _build_denoiser(args)
     notifier = Notifier()
 
     def on_stable(src: Path) -> None:

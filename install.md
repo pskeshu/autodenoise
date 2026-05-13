@@ -136,11 +136,20 @@ import path light and the CLI snappy.
 
 If you add a real backend, also:
 
-- Add it to `requirements.txt`.
+- Add it to `requirements.txt`, or — if it tightens the Python-version
+  envelope or pulls a heavy ML stack — to a separate
+  `requirements-<backend>.txt` so the base watcher install stays lean.
 - Expose a CLI flag in `run.py` to select between backends, defaulting to
   `PassthroughDenoiser` so the existing smoke test keeps working.
 - Update `README.md` (the "Plugging in a real denoiser" section) and add a
-  one-line entry in `install.md` under "How to add a real denoiser".
+  one-line entry below under "Currently shipped backends".
+
+### Currently shipped backends
+
+- **CAREamics N2V/N2V2** — `autodenoise.careamics_backend.CAREamicsN2VDenoiser`.
+  Self-supervised; trained via top-level `train.py`, selected at run time
+  with `--backend careamics-n2v --weights <ckpt>`. Optional dep set:
+  `requirements-careamics.txt` (Python 3.11+).
 
 ## Verification before reporting a task done
 

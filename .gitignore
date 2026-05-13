@@ -14,3 +14,9 @@ data/
 incoming/
 output/
 denoised/
+
+# Slide deck — kept locally, not part of the upstream repo
+slides/
+
+# Smoke-test workspace
+.smoke/
